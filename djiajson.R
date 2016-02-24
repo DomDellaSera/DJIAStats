@@ -4,7 +4,7 @@ library(RCurl)
 library(dplyr)
 library(quantmod)
 
-
+errorlog <- NULL
 
 
 DJIA.Wiki<- function(months.to.query, current.month = FALSE){ 
@@ -92,15 +92,40 @@ generate_stock_data.tbl <- function(){#creates link/ticker relational table;A ve
 }
 
 json.data.extractor <- function(json.url){#Take URL and creates a table from a single URL
+	
         #json.url <- "http://stats.grok.se/json/en/201504/3M"
+        
+        tryCatch({
+	
+			},warning=function(cond){
+				message(cond)
+			
+		},	error=function(cond){
+					message("json", url, "could not be extracted")
+				if(is.null(errorlog)==TRUE){errorlog <-c(jsonerrorcounter,
+					Sys.time(), json.url, cond)}
+				else if(is.null(errorlog == FALSE)){errorlog<-rbind(errorlog, c(jsonerrorcounter,
+					Sys.time(), json.url, cond))}
+			
+			
+           message(cond)
+           return("JSON Failed to Extract, See errorlog") 
+		},	finally={print("extracting next json")}
+		)
+
+
         testjson <- fromJSON(getURL(json.url))
         
         json.ints<- sapply(1:length(testjson$daily_views), function(x) testjson$daily_views[[x]])#interger pageview values
-        tmp <-as.Date(names(testjson$daily_views))
+        tmp <-names(testjson$daily_views)
         #3M April date from JSON has a 31st day as 0, and there is no April 31st so error message is priduced
         #Need to write a way to remove errored value
         df.j.test <- data.frame(tmp, json.ints, rep(substr(json.url, 37, 60), length(testjson$daily_views)))
         colnames(df.j.test) <- c("Date", "Views", "Firm")###THIS MAY BREAK THE PROGRAM
+        df.j.test <- tbl_df(df.j.test)%>%
+                filter(Views > 0)%>%
+                mutate(Date = as.Date(Date), Views, Firm)
+        
         print(paste(substr(json.url, 37, 60), testjson$month, "downloaded"))
         #close(url(json.url), type = "r")
         return(df.j.test)        
@@ -108,6 +133,7 @@ json.data.extractor <- function(json.url){#Take URL and creates a table from a s
 
 tablegen <- function(urls){#Generates a single clean table from a list of urls
         print("Downloading JSON")
+        jsonerrorcounter <- 0#fromJSON usually/will fuck up
         firmtabs <-lapply(urls[1:length(urls)], json.data.extractor)
         print("JSON Extracted, Creating Tables")
         firmtable.master = NULL
@@ -118,7 +144,7 @@ tablegen <- function(urls){#Generates a single clean table from a list of urls
                 firm.identifier = substr(i, 37, nchar(i))
                
                 i.firmtab.df <- as.data.frame(i)
-                i.dplyr<- tbl_df(i.firmtab.df)
+                i.dplyr<- i.firmtab.df
         
                
                 i.dplyr.tidy <- filter(i.dplyr, Views > 0)
