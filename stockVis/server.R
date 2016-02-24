@@ -1,10 +1,13 @@
 # server.R
-
+library(dplyr)
 library(quantmod)
 source("helpers.R")
 
 shinyServer(function(input, output) {
         
+        viewInput <- reactive({
+                
+        })
         dataInput <- reactive({  
                 getSymbols(input$symb, src = "yahoo", 
                            from = input$dates[1],

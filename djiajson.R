@@ -51,19 +51,15 @@ DJIA.Wiki<- function(months.to.query, current.month = FALSE){
         #print(aggregatelinks)
         tablegen(aggregatelinks)
 }
-#THIS IS NOT RETURNING A HUGE TABLE AND I HAVE NO IDEA WHY, THE FUNCTIONS ARE WORKING INDIVIDUALLY
-#BUT ARE NOT POINTING TO THEMSELVES ACCURATELY
 
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #t.url<- "http://stats.grok.se/json/en/201511/3M"
-#testurls
+
 
 generate_stock_data.tbl <- function(){#creates link/ticker relational table;A very inefficient,but quick fix
         djia.url <- "https://en.wikipedia.org/wiki/Dow_Jones_Industrial_Average"#       Dow Jones industrial Average
         xData <- getURL(djia.url)
         djia.xmel <- xmlTreeParse(xData, useInternalNodes = TRUE, isHTML = TRUE)
-        #Xpath:
-        #/html/body/div[3]/div[3]/div[4]/table[2]/tbody/tr[1]/td[3]/a
+        
         
         stock.tickers <- xpathSApply(djia.xmel, "//tr/td[3]/a", xmlValue)
         getSymbols(stock.tickers)
@@ -71,7 +67,7 @@ generate_stock_data.tbl <- function(){#creates link/ticker relational table;A ve
         links.ra <- as.character(links.raw)#nice string
         Firm<- substring(links.ra[7:36], 7, last = 128L)
         print(Firm)
-        #break###TESTING
+        
         stock.linkdf <- data.frame(stock.tickers, Firm)
         link.ticker.rrdbs <- tbl_df(stock.linkdf)
         master.stock.table = NULL
@@ -118,8 +114,7 @@ json.data.extractor <- function(json.url){#Take URL and creates a table from a s
         
         json.ints<- sapply(1:length(testjson$daily_views), function(x) testjson$daily_views[[x]])#interger pageview values
         tmp <-names(testjson$daily_views)
-        #3M April date from JSON has a 31st day as 0, and there is no April 31st so error message is priduced
-        #Need to write a way to remove errored value
+
         df.j.test <- data.frame(tmp, json.ints, rep(substr(json.url, 37, 60), length(testjson$daily_views)))
         colnames(df.j.test) <- c("Date", "Views", "Firm")###THIS MAY BREAK THE PROGRAM
         df.j.test <- tbl_df(df.j.test)%>%
@@ -154,16 +149,10 @@ tablegen <- function(urls){#Generates a single clean table from a list of urls
                 print(counter)
                 counter <- counter + 1
         }
-        #wiki.link2ticker()
         attach(generate_stock_data.tbl())
         linknticker.tbl <- link.ticker.rrdbs
         firmtable.master.nice <- firmtable.master #DELETING BELOW BROKE MY PROGREAM
-        #this is just here to unbreak it and is useless
-        #firmtable.master.nice <- rename(firmtable.master,
-                                        #'Date' = tmp,
-                                        #'Views' = json.ints,
-                                        #'Firm' = rep.testjson.title..length.testjson.daily_views..
-                                        #)
+   
         firmtable.master.nice <- left_join(firmtable.master.nice, linknticker.tbl, by= "Firm")
         print(firmtable.master.nice)
         print(master.stock.table)
@@ -177,4 +166,3 @@ tablegen <- function(urls){#Generates a single clean table from a list of urls
 
 
 
-#Calls DIJI.Wiki, 
