@@ -1,7 +1,7 @@
 library(shiny)
 library(dplyr)
 
-firm.equal.ticker.encoding <-c("3M" = " MMM",  "American Express"= "AXP", 
+firm.equal.ticker.encoding <-c("3M" = "MMM",  "American Express"= "AXP", 
   "Apple Inc." = "AAPL", "Boeing" = "BA",  
   "Caterpillar Inc." = "CAT", "Chevron Corporation" = "CVX", 
   "Cisco Systems" = "CSCO", "The Coca-Cola Company" = "KO", 
@@ -22,23 +22,28 @@ firm.equal.ticker.encoding <-c("3M" = " MMM",  "American Express"= "AXP",
 
 
 shinyUI(fluidPage(
-        titlePanel("Wikipedia Views of the Dow Jones Industrial Average"),
+        titlePanel("Companies of the Dow Jones Industrial Average vs Wikipedia Views"),
         
         sidebarLayout(
                 sidebarPanel(
                         helpText("Select a stock to examine. 
         Information will be collected from yahoo finance."),
                         
-                        textInput("symb", "Symbol", "SPY"),
+                        #textInput("symb", "Symbol", "SPY"),
                         selectInput(inputId = "ticker",
                                     label = "Company",
                                     selected = "3M",
                                     choices = firm.equal.ticker.encoding), 
+                        selectInput(inputId = "metric",
+                                    label = "Stock Metric",
+                                    selected = "Close",
+                                    choices = list("Open" = "Open", "High" = "High", "Low"= "Low",
+                                                   "Volume" = "Volume", "Close"= "Close", "Adjusted"= "Adjusted")),
                         
                         dateRangeInput("dates", 
                                        "Date range",
-                                       start = "2013-01-01", 
-                                       end = "2016-01-31",
+                                       start = "2011-02-01", 
+                                       end = "2016-01-20"),
                                        
                                        br(),
                                        br(),
@@ -48,8 +53,11 @@ shinyUI(fluidPage(
                                        
                                        checkboxInput("adjust", 
                                                      "Adjust prices for inflation", value = FALSE)
-                        )),
+                        ),
                         
-                        mainPanel(plotOutput("plot"))
+                        mainPanel(plotOutput("plot"),
+                                  #926x595 Native
+                                  img(src = "wikipediaviewstradingstrategy.png", width = 463, height = 297)
+                                  )
                 
         )))

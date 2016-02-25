@@ -29,7 +29,7 @@ filter(wiki.views.tbl, stock.tickers == "MMM")
 select(wiki.views.tbl, Date, Firm, Views, Open)
 
 
-filter(wiki.views.tbl, Date > "2015-01-01")
+filter(wiki.views.tbl, Date > "2015-01-01", Date )
 filter(wiki.views.tbl, Date < "2012-01-01")
 
 
@@ -102,5 +102,90 @@ g <- gtable_add_cols(g, g2$widths[g2$layout[ia, ]$l], length(g$widths) - 1)
 g <- gtable_add_grob(g, ax, pp$t, length(g$widths) - 1, pp$b)
 
 # draw it
+grid.draw(g)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#####
+
+
+
+
+
+
+
+
+
+grid.newpage()
+# extract gtable
+g1 <- ggplot_gtable(ggplot_build(p1))
+g2 <- ggplot_gtable(ggplot_build(p2))
+
+# overlap the panel of 2nd plot on that of 1st plot
+pp <- c(subset(g1$layout, name == "panel", se = t:r))
+g <- gtable_add_grob(g1, g2$grobs[[which(g2$layout$name == "panel")]], pp$t, 
+                     pp$l, pp$b, pp$l)
+
+# axis tweaks
+ia <- which(g2$layout$name == "axis-l")
+ga <- g2$grobs[[ia]]
+ax <- ga$children[[2]]
+ax$widths <- rev(ax$widths)
+ax$grobs <- rev(ax$grobs)
+ax$grobs[[1]]$x <- ax$grobs[[1]]$x - unit(1, "npc") + unit(0.15, "cm")
+g <- gtable_add_cols(g, g2$widths[g2$layout[ia, ]$l], length(g$widths) - 1)
+g <- gtable_add_grob(g, ax, pp$t, length(g$widths) - 1, pp$b)
+
+# draw it
+grid.draw(g)
+
+
+
+###############
+
+
+
+
+g1 <- ggplot_gtable(ggplot_build(p1))
+g2 <- ggplot_gtable(ggplot_build(p2))
+
+# overlap the panel of 2nd plot on that of 1st plot
+pp <- c(subset(g1$layout, grepl("panel",name) , se = t:r))
+g <- gtable_add_grob(g1, g2$grobs[grep("panel",g2$layout$name)], pp$t, 
+                     pp$l, pp$b, pp$l)
+
+
+
+# axis tweaks
+ia <- which(grepl("axis_l",g2$layout$name) |  grepl("axis-l",g2$layout$name)     )
+ga <- g2$grobs[ia]
+
+
+axis_idx <- as.numeric(which(sapply(ga,function(x) !is.null(x$children$axis))))
+
+for(i in 1:length(axis_idx)){
+        ax <- ga[[axis_idx[i]]]$children$axis
+        ax$widths <- rev(ax$widths)
+        ax$grobs <- rev(ax$grobs)
+        ax$grobs[[1]]$x <- ax$grobs[[1]]$x - unit(1, "npc") + unit(0.15, "cm")
+        g <- gtable_add_cols(g, g2$widths[g2$layout[ia[axis_idx[i]], ]$l], length(g$widths) - 1)
+        g <- gtable_add_grob(g, ax, pp$t[axis_idx[i]], length(g$widths) - i, pp$b[axis_idx[i]])
+}
+
+
+
+# Plot!
+grid.newpage()
 grid.draw(g)
 
