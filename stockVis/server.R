@@ -1,89 +1,73 @@
-# server.R
+# server.R-This contains the R Code which receives inputs from ui.R, serving as the backend
 library(dplyr)
-library(quantmod)
-library(ggplot2)
-library(gtable)
-library(grid)
-source("helpers.R")
-source("/Users/Dominic/Documents/Programming/MySQL/Rconnection.R")
+library(RMySQL)
+library(xts)
+library(dygraphs)
+library(shiny)
+source("/home/dominic/Documents/Programming/Connections/RtoMySQLconnection.R")
 
 shinyServer(function(input, output) {
+    output$dygraph <- renderDygraph({
+        # Renders Dygraph plot. Reruns every time user changes an input.
         
-
-        output$plot <- renderPlot({
-                
-                sqlstatement<-paste("SELECT ",
-                      "date,", input$metric,
-                      " FROM wikiviews WHERE ",
-                      "stocktickers ='",input$ticker, "' AND date > '",
-                      input$dates[1],"' AND date < '",
-                      input$dates[2],"' AND ",
-                      input$metric, " > 0",
-                      sep = "")
-                sqlstatement.views<-paste("SELECT ",
-                                    "date, views",
-                                    " FROM wikiviews WHERE ",
-                                    "stocktickers ='",input$ticker, "' AND date > '",
-                                    input$dates[1],"' AND date < '",
-                                    input$dates[2],"' AND ",
-                                    input$metric, " > 0",
-                                    sep = "")
-                message(sqlstatement)
-                message(input$dates[1])
-                
-                table <-dbGetQuery(conn = localcon,statement = sqlstatement)
-                message(tail(table))
-            message(length(table[,1]))
-            message(length(table[,2]))
-            
-            table.views <-dbGetQuery(conn = localcon,statement = sqlstatement.views)
-            message(str(table.views))
-            
-            
-            
-        p1 <- ggplot(data = table,
-                       aes(x =as.Date(table[,1]), y=table[,2]))+
-                        geom_line(color = "red")+ labs(x ="Date", y = input$metric)
-                
-        p2 <-ggplot(data = table.views,
-                       aes(x =as.Date(table.views[,1]), y=table.views[,2]))+
-                        geom_line(color = "blue")+theme_bw() %+replace% 
-                theme(panel.background = element_rect(fill = NA)) #labs(x ="Date", y = input$metric)
-            
-            
+        sqlstatement<-paste("SELECT date,views,",input$metric, " FROM wikiviews WHERE stocktickers = '", input$ticker,
+                            "' AND date > '", input$dates[1], "' AND date < '", input$dates[2],
+                            "' AND ",input$metric, " > 0",sep = "")
+        table<-dbGetQuery(conn = localcon,statement = sqlstatement)
+        table_arranged<- arrange(table, date)
+        table <-table_arranged
         
-            
-            ######
-        grid.newpage()
         
-        # two plots
-        # from http://rpubs.com/kohske/dual_axis_in_ggplot2
         
-        #p1 <-ggplot(crimebytime,aes(dates,crime)) + geom_line(colour="red", size=2) + theme_bw()
-        #p2 <-ggplot(weatherxts,aes(dates,temperature)) + geom_line(colour="blue", size=2) + theme_bw() %+replace% 
-                theme(panel.background = element_rect(fill = NA))
+        table_date <-as.Date(table[,1])
+        table_views <- table[,2]
+        table_firm <- table[,3]
         
-        # extract gtable
-        g1 <- ggplot_gtable(ggplot_build(p1))
-        g2 <- ggplot_gtable(ggplot_build(p2))
+        # DyGraphs require Xtensible Time Series (xts) format
+        table.xts <- xts(data.frame(table_views, table_firm), order.by = table_date)
+        # fitted local regression makes interweekely variations in page views tolerable 
+        smoothed_views <-fitted(loess(table.xts[,1]~ as.numeric(table_date),span = input$slider1))
+        smoothed_views.df <- xts(data.frame(table_date, smoothed_views), order.by = table_date)
+        smoothed_firm <-fitted(loess(table.xts[,2]~ as.numeric(table_date),span = input$slider1))
+        smoothed_firm.df <-  xts(data.frame(table_date, smoothed_firm), order.by = table_date)
         
-        # overlap the panel of 2nd plot on that of 1st plot
-        pp <- c(subset(g1$layout, name == "panel", se = t:r))
-        g <- gtable_add_grob(g1, g2$grobs[[which(g2$layout$name == "panel")]], pp$t, 
-                             pp$l, pp$b, pp$l)
         
-        # axis tweaks
-        ia <- which(g2$layout$name == "axis-l")
-        ga <- g2$grobs[[ia]]
-        ax <- ga$children[[2]]
-        ax$widths <- rev(ax$widths)
-        ax$grobs <- rev(ax$grobs)
-        ax$grobs[[1]]$x <- ax$grobs[[1]]$x - unit(1, "npc") + unit(0.15, "cm")
-        g <- gtable_add_cols(g, g2$widths[g2$layout[ia, ]$l], length(g$widths) - 1)
-        g <- gtable_add_grob(g, ax, pp$t, length(g$widths) - 1, pp$b)
+        # Equation for calculating daily percent change for future versions
+        # table.xts_calc <- (diff(table.xts)/table.xts[-nrow(table.xts),] * 100)
         
-        # draw it
-        grid.draw(g)
-            
-                })
+        
+        
+        if('wiki_percent_change'%in% input$variable && 'stock_metric_change' %in% input$variable){
+            table.dygraph<- merge(smoothed_views.df, smoothed_firm.df)
+            view_column <-"smoothed_views"
+            firm_column <- "smoothed_firm"
+        } else if('wiki_percent_change' %in% input$variable){
+            table.dygraph<- merge(smoothed_views.df, table.xts$table_firm)
+            view_column <-"smoothed_views"
+            firm_column <- "table_firm"
+        } else if('stock_metric_change' %in% input$variable){
+            table.dygraph<- merge(table.xts$table_views, smoothed_firm.df)
+            firm_column <- "smoothed_firm"
+            view_column <-"table_views"
+            } else {
+            table.dygraph<- merge(table.xts$table_views, table.xts$table_firm)
+            firm_column <- "table_firm"
+            view_column <-"table_views"
+        }
+        
+        
+        
+        
+        dygraph(table.dygraph, main = "Stock Data and Wikipedia Page Views") %>%
+            dySeries(firm_column, axis = "y2", label = input$metric) %>%
+            dySeries(view_column, axis = "y", label = "Page Views")%>%
+            dyAxis("y", label = "Page views")%>%
+            dyAxis("y2", label = input$metric, independentTicks = TRUE)%>%
+            dyRangeSelector(dateWindow = c(input$dates[1], input$dates[2]))%>%
+            dyHighlight(highlightCircleSize = 2, 
+                        highlightSeriesBackgroundAlpha = 0.8,
+                        hideOnMouseOut = TRUE)
+    })
+    
 })
+
