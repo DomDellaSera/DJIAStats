@@ -7,18 +7,24 @@ library(shiny)
 source("/home/dominic/Documents/Programming/Connections/RtoMySQLconnection.R")
 
 shinyServer(function(input, output) {
+      sql.gen <-reactive({
+            
+      sqlstatement<-paste("SELECT date,views,",input$metric, " FROM wikiviews WHERE stocktickers = '", input$ticker,
+                          "' AND date > '", input$dates[1], "' AND date < '", input$dates[2],
+                          "' AND ",input$metric, " > 0",sep = "")
+      table<-dbGetQuery(conn = localcon,statement = sqlstatement)
+      #table_arranged<- 
+            arrange(table, date)
+      })
+      
     output$dygraph <- renderDygraph({
         # Renders Dygraph plot. Reruns every time user changes an input.
         
-        sqlstatement<-paste("SELECT date,views,",input$metric, " FROM wikiviews WHERE stocktickers = '", input$ticker,
-                            "' AND date > '", input$dates[1], "' AND date < '", input$dates[2],
-                            "' AND ",input$metric, " > 0",sep = "")
-        table<-dbGetQuery(conn = localcon,statement = sqlstatement)
-        table_arranged<- arrange(table, date)
-        table <-table_arranged
+        
+        table <- sql.gen()
         
         
-        
+        #message(head(table))
         table_date <-as.Date(table[,1])
         table_views <- table[,2]
         table_firm <- table[,3]
@@ -38,29 +44,32 @@ shinyServer(function(input, output) {
         
         
         if('wiki_percent_change'%in% input$variable && 'stock_metric_change' %in% input$variable){
-            table.dygraph<- merge(smoothed_views.df, smoothed_firm.df)
+            table.dygraph<- merge(smoothed_views.df, smoothed_firm.df)[,c(2,4)]
             view_column <-"smoothed_views"
             firm_column <- "smoothed_firm"
         } else if('wiki_percent_change' %in% input$variable){
-            table.dygraph<- merge(smoothed_views.df, table.xts$table_firm)
+            table.dygraph<- merge(smoothed_views.df, table.xts$table_firm)[,2:3]#These mergers are being subsetted because the colum
+            #used to merge was screwing with the graph colors
             view_column <-"smoothed_views"
             firm_column <- "table_firm"
         } else if('stock_metric_change' %in% input$variable){
-            table.dygraph<- merge(table.xts$table_views, smoothed_firm.df)
-            firm_column <- "smoothed_firm"
+            table.dygraph<- merge(table.xts$table_views, smoothed_firm.df)[,c(1,3)]
             view_column <-"table_views"
+            firm_column <- "smoothed_firm"
+            
             } else {
             table.dygraph<- merge(table.xts$table_views, table.xts$table_firm)
-            firm_column <- "table_firm"
             view_column <-"table_views"
+            firm_column <- "table_firm"
+            
         }
         
         
         
-        
+        print(head(table.dygraph))
         dygraph(table.dygraph, main = "Stock Data and Wikipedia Page Views") %>%
-            dySeries(firm_column, axis = "y2", label = input$metric) %>%
-            dySeries(view_column, axis = "y", label = "Page Views")%>%
+            dySeries(firm_column, axis = "y2", label = input$metric, color = '#4F037F') %>%
+            dySeries(view_column, axis = "y", label = "Page Views", color='#4FAF7F')%>%
             dyAxis("y", label = "Page views")%>%
             dyAxis("y2", label = input$metric, independentTicks = TRUE)%>%
             dyRangeSelector(dateWindow = c(input$dates[1], input$dates[2]))%>%
