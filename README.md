@@ -2,6 +2,8 @@
 
 This respository contains all the code used to obtain, tidy, store, and visualize the data which compares behavioral and financial data.
 
+
+
 ###Purpose
 
 
@@ -22,7 +24,32 @@ Technical Analysis is an attempt to predict the movement of future stock prices 
 
 ###Main Tools Used
 + R Programming Language
-+  MySQL Database
-+ Shiny Package and Shiny Server Open Source Edition
-+ Dygraphs for R
++ MySQL
 + Ubuntu Linux computer to host server
++ Shiny Package/Server (UI)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### Dygraphs for R
+![MainDygraph](wikiviewdygraph.PNG)
